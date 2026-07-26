@@ -79,7 +79,7 @@ print(
 
 embeddings = (
     GoogleGenerativeAIEmbeddings(
-        model="models/embedding-001"
+        model="models/gemini-embedding-001"
     )
 )
 

@@ -25,8 +25,8 @@ OUTPUT_FILE = (
 # Parámetros
 # ==================================
 
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 200
+CHUNK_SIZE = 2500
+CHUNK_OVERLAP = 300
 
 # ==================================
 # Función chunking

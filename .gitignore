@@ -216,3 +216,29 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ============================================================
+# Datos y documentos privados del agente RAG
+# ============================================================
+
+# Excluir documentos fuente usados para indexación local
+data/
+
+# Excluir respaldos o archivos temporales de documentos
+*.tmp
+*.bak
+~$*
+
+# Excluir archivos de entorno con claves o credenciales
+.env
+.env.local
+.env.production
+
+# Excluir caches de Python
+__pycache__/
+*.pyc
+
+# Excluir índices vectoriales generados localmente
+vectorstore/
+faiss_index/
+chroma_db/

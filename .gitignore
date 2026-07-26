@@ -242,3 +242,6 @@ __pycache__/
 vectorstore/
 faiss_index/
 chroma_db/
+
+# excluir API
+.env

@@ -7,10 +7,8 @@ ProjectCopilot AI es un asistente corporativo basado en Inteligencia Artificial 
 El objetivo es permitir a los colaboradores consultar documentación interna relacionada con:
 
 - Gestión de proyectos
-- Producción
 - Compliance
 - Gestión documental
-- Arquitectura de datos
 - Procedimientos operacionales
 
 ## Tecnologías
@@ -26,6 +24,15 @@ El objetivo es permitir a los colaboradores consultar documentación interna rel
 ## Estado del Proyecto
 
 🚧 En desarrollo
+
+## Base documental utilizada:
+
+- Políticas de confidencialidad
+- Normativas
+- Información de proyectos
+- Procedimientos internos
+
+Por motivos de confidencialidad, los documentos utilizados para la indexación no forman parte del repositorio público.
 
 ## Autor
 

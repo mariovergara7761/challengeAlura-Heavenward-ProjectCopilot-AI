@@ -16,17 +16,23 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-VECTORSTORE_DIR = (
-    BASE_DIR /
-    "vectorstore"
-)
+VECTORSTORE_DIR = BASE_DIR / "vectorstore"
 
 TOP_K = 5
+TOP_K_CANDIDATOS = 8
 
+# Distancia máxima sugerida para FAISS.
+# En FAISS con embeddings locales, menor puntaje = más parecido.
+# Si el umbral deja pocos resultados, igual se usarán los mejores disponibles.
+SCORE_MAXIMO_REFERENCIAL = 1.5
+
+# Modelos reales disponibles en tu API Gemini.
+# Importante: usar el prefijo "models/" porque así los devuelve tu API.
 MODELOS_GEMINI = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash"
+    "models/gemini-2.5-flash",
+    "models/gemini-2.0-flash",
+    "models/gemini-flash-latest",
+    "models/gemini-pro-latest"
 ]
 
 
@@ -51,46 +57,82 @@ vectorstore = FAISS.load_local(
 
 
 # ============================================================
-# Función: recuperar documentos relevantes
+# Función: recuperar fragmentos relevantes con score
 # ============================================================
 
-def recuperar_contexto(pregunta, k=TOP_K):
+def recuperar_contexto(pregunta, k_candidatos=TOP_K_CANDIDATOS, top_k=TOP_K):
     """
-    Recupera los fragmentos más relevantes desde FAISS.
+    Recupera fragmentos relevantes desde FAISS.
+
+    Usa similarity_search_with_score para obtener:
+    - documento recuperado
+    - score de similitud/distancia
+
+    Nota:
+    En FAISS, normalmente un score menor indica mayor cercanía semántica.
     """
 
-    resultados = vectorstore.similarity_search(
+    resultados_con_score = vectorstore.similarity_search_with_score(
         pregunta,
-        k=k
+        k=k_candidatos
     )
 
-    return resultados
+    if not resultados_con_score:
+        return []
+
+    # Filtrar resultados muy débiles según umbral referencial
+    resultados_filtrados = [
+        (doc, score)
+        for doc, score in resultados_con_score
+        if score <= SCORE_MAXIMO_REFERENCIAL
+    ]
+
+    # Si el filtro es demasiado estricto, usar los mejores resultados disponibles
+    if not resultados_filtrados:
+        resultados_filtrados = resultados_con_score[:top_k]
+
+    return resultados_filtrados[:top_k]
 
 
 # ============================================================
-# Función: ensamblar contexto para el LLM
+# Función: construir contexto para el LLM
 # ============================================================
 
-def construir_contexto(resultados):
+def construir_contexto(resultados_con_score):
     """
-    Construye un bloque de contexto con metadatos de fuente.
+    Construye el bloque de contexto que será enviado al LLM.
+    Incluye metadatos para que la respuesta pueda citar fuentes.
     """
 
     contexto = ""
 
-    for i, doc in enumerate(resultados, start=1):
+    for i, (doc, score) in enumerate(resultados_con_score, start=1):
 
-        archivo = doc.metadata.get("archivo", "Fuente no identificada")
-        categoria = doc.metadata.get("categoria", "Categoría no identificada")
-        chunk = doc.metadata.get("chunk_numero", "N/A")
+        archivo = doc.metadata.get(
+            "archivo",
+            "Archivo no identificado"
+        )
+
+        categoria = doc.metadata.get(
+            "categoria",
+            "Categoría no identificada"
+        )
+
+        chunk = doc.metadata.get(
+            "chunk_numero",
+            "N/A"
+        )
+
+        contenido = doc.page_content
 
         contexto += (
             f"\n\n[Fragmento {i}]\n"
             f"Archivo: {archivo}\n"
             f"Categoría: {categoria}\n"
             f"Chunk: {chunk}\n"
+            f"Score FAISS: {score}\n"
             f"Contenido:\n"
-            f"{doc.page_content}\n"
+            f"{contenido}\n"
         )
 
     return contexto.strip()
@@ -100,23 +142,36 @@ def construir_contexto(resultados):
 # Función: obtener fuentes únicas
 # ============================================================
 
-def obtener_fuentes(resultados):
+def obtener_fuentes(resultados_con_score):
     """
-    Extrae las fuentes documentales utilizadas en la respuesta.
+    Extrae fuentes documentales utilizadas en la recuperación.
+    Evita duplicados exactos.
     """
 
     fuentes = []
 
-    for doc in resultados:
+    for doc, score in resultados_con_score:
 
-        archivo = doc.metadata.get("archivo", "Fuente no identificada")
-        categoria = doc.metadata.get("categoria", "Categoría no identificada")
-        chunk = doc.metadata.get("chunk_numero", "N/A")
+        archivo = doc.metadata.get(
+            "archivo",
+            "Archivo no identificado"
+        )
+
+        categoria = doc.metadata.get(
+            "categoria",
+            "Categoría no identificada"
+        )
+
+        chunk = doc.metadata.get(
+            "chunk_numero",
+            "N/A"
+        )
 
         fuente = {
             "archivo": archivo,
             "categoria": categoria,
-            "chunk": chunk
+            "chunk": chunk,
+            "score": score
         }
 
         if fuente not in fuentes:
@@ -126,37 +181,56 @@ def obtener_fuentes(resultados):
 
 
 # ============================================================
-# Función: construir prompt
+# Función: construir prompt para Gemini
 # ============================================================
 
 def construir_prompt(pregunta, contexto):
     """
-    Construye el prompt que será enviado al modelo generativo.
+    Construye el prompt que se enviará al modelo generativo.
+
+    La instrucción principal es evitar alucinaciones:
+    el modelo solo puede responder con base en el contexto recuperado.
     """
 
     prompt = f"""
 Eres un asistente corporativo especializado en normativa interna,
 normativa externa y documentación de proyectos de Heavenward.
 
-Tu tarea es responder preguntas usando EXCLUSIVAMENTE el contexto proporcionado.
+Tu objetivo es responder preguntas de colaboradores usando EXCLUSIVAMENTE
+el contexto recuperado desde los documentos disponibles.
 
-Reglas obligatorias:
-1. Responde solo con información contenida en el contexto.
+REGLAS OBLIGATORIAS:
+1. Responde solo con información contenida en el contexto proporcionado.
 2. No inventes datos.
 3. No uses conocimiento externo.
-4. Si el contexto no contiene información suficiente, responde:
+4. No extrapoles información normativa.
+5. Si el contexto no contiene información suficiente, responde exactamente:
    "No encontré información suficiente en los documentos disponibles."
-5. Si respondes, menciona las fuentes utilizadas al final.
-6. Usa un lenguaje claro, profesional y directo.
-7. Si la pregunta se relaciona con normativa, responde con especial cuidado y sin extrapolar.
+6. Si respondes, menciona claramente las fuentes utilizadas.
+7. Usa un lenguaje claro, profesional y directo.
+8. Si la pregunta está relacionada con normativa, responde con especial cuidado.
+9. Si hay varias fuentes, integra la respuesta sin contradecir los documentos.
+10. No cites fuentes que no aporten directamente a la respuesta.
 
-Pregunta del usuario:
+PREGUNTA DEL USUARIO:
 {pregunta}
 
-Contexto recuperado:
+CONTEXTO RECUPERADO:
 {contexto}
 
+FORMATO DE RESPUESTA ESPERADO:
+
 Respuesta:
+[Respuesta clara, directa y basada solo en el contexto.]
+
+Fuentes utilizadas:
+- [Nombre del archivo 1]
+- [Nombre del archivo 2]
+
+Si no existe información suficiente, responder:
+"No encontré información suficiente en los documentos disponibles."
+
+RESPUESTA:
 """
 
     return prompt
@@ -169,14 +243,16 @@ Respuesta:
 def generar_respuesta(prompt):
     """
     Genera una respuesta usando Gemini.
-    Prueba varios modelos disponibles en caso de error de modelo.
+
+    Prueba los modelos disponibles en orden.
+    Si un modelo falla, intenta con el siguiente.
     """
 
     api_key = os.getenv("GOOGLE_API_KEY")
 
     if not api_key:
         return (
-            "No se encontró GOOGLE_API_KEY en el archivo .env. "
+            "No se encontró la variable GOOGLE_API_KEY en el archivo .env. "
             "No fue posible generar una respuesta con Gemini."
         )
 
@@ -194,7 +270,8 @@ def generar_respuesta(prompt):
                 contents=prompt
             )
 
-            return respuesta.text
+            if respuesta and respuesta.text:
+                return respuesta.text.strip()
 
         except Exception as error:
             ultimo_error = error
@@ -211,12 +288,16 @@ def generar_respuesta(prompt):
 
 def mostrar_fuentes(fuentes):
     """
-    Imprime las fuentes utilizadas por la recuperación.
+    Muestra las fuentes recuperadas por FAISS.
     """
 
     print("\n" + "=" * 80)
-    print("FUENTES UTILIZADAS")
+    print("FUENTES RECUPERADAS")
     print("=" * 80)
+
+    if not fuentes:
+        print("\nNo se recuperaron fuentes documentales.")
+        return
 
     for i, fuente in enumerate(fuentes, start=1):
 
@@ -224,6 +305,27 @@ def mostrar_fuentes(fuentes):
         print(f"Archivo: {fuente['archivo']}")
         print(f"Categoría: {fuente['categoria']}")
         print(f"Chunk: {fuente['chunk']}")
+        print(f"Score FAISS: {fuente['score']}")
+
+
+# ============================================================
+# Función: mostrar contexto para auditoría
+# ============================================================
+
+def mostrar_contexto(contexto):
+    """
+    Muestra una vista parcial del contexto recuperado.
+    Esto ayuda a auditar qué información fue entregada al LLM.
+    """
+
+    print("\n" + "=" * 80)
+    print("CONTEXTO RECUPERADO PARA EL LLM")
+    print("=" * 80)
+
+    print(contexto[:6000])
+
+    if len(contexto) > 6000:
+        print("\n[Contexto truncado en pantalla para facilitar lectura]")
 
 
 # ============================================================
@@ -245,69 +347,83 @@ def main():
         print("\nNo ingresaste una consulta.")
         return
 
-    # ------------------------------------------
-    # Recuperar fragmentos relevantes
-    # ------------------------------------------
+    # --------------------------------------------------------
+    # 1. Recuperar fragmentos relevantes
+    # --------------------------------------------------------
 
-    resultados = recuperar_contexto(
+    resultados_con_score = recuperar_contexto(
         pregunta,
-        k=TOP_K
+        k_candidatos=TOP_K_CANDIDATOS,
+        top_k=TOP_K
     )
 
-    if not resultados:
+    if not resultados_con_score:
         print(
             "\nNo encontré información suficiente "
             "en los documentos disponibles."
         )
         return
 
-    # ------------------------------------------
-    # Construir contexto
-    # ------------------------------------------
+    # --------------------------------------------------------
+    # 2. Construir contexto
+    # --------------------------------------------------------
 
     contexto = construir_contexto(
-        resultados
+        resultados_con_score
     )
+
+    if not contexto.strip():
+        print(
+            "\nNo encontré información suficiente "
+            "en los documentos disponibles."
+        )
+        return
 
     fuentes = obtener_fuentes(
-        resultados
+        resultados_con_score
     )
 
-    # ------------------------------------------
-    # Construir prompt
-    # ------------------------------------------
+    # --------------------------------------------------------
+    # 3. Construir prompt
+    # --------------------------------------------------------
 
     prompt = construir_prompt(
         pregunta,
         contexto
     )
 
-    # ------------------------------------------
-    # Generar respuesta
-    # ------------------------------------------
+    # --------------------------------------------------------
+    # 4. Generar respuesta
+    # --------------------------------------------------------
 
     respuesta = generar_respuesta(
         prompt
     )
 
-    # ------------------------------------------
-    # Mostrar respuesta final
-    # ------------------------------------------
+    # --------------------------------------------------------
+    # 5. Mostrar respuesta final
+    # --------------------------------------------------------
 
     print("\n" + "=" * 80)
-    print("RESPUESTA")
+    print("RESPUESTA GENERADA")
     print("=" * 80)
 
-    print(
-        respuesta
-    )
+    print("\n" + respuesta)
 
-    # ------------------------------------------
-    # Mostrar fuentes utilizadas
-    # ------------------------------------------
+    # --------------------------------------------------------
+    # 6. Mostrar fuentes recuperadas
+    # --------------------------------------------------------
 
     mostrar_fuentes(
         fuentes
+    )
+
+    # --------------------------------------------------------
+    # 7. Mostrar contexto para auditoría técnica
+    # --------------------------------------------------------
+
+    mostrar_contexto(
+        contexto
     )
 
     print("\n" + "=" * 80)

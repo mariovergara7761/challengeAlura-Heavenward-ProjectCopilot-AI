@@ -15,53 +15,24 @@ y documentación de proyectos de Heavenward Ascensores S.A.
 
 ## Arquitectura General
 
-┌─────────────────────────────┐
-│      Usuario Final          │
-│  (Colaborador Heavenward)   │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│      Streamlit (app.py)     │
-│ Interfaz Web Conversacional │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│         chat.py             │
-│ Orquestación del Agente IA  │
-└──────────────┬──────────────┘
-               │
-       ┌───────┴────────┐
-       ▼                ▼
-┌──────────────┐  ┌──────────────┐
-│   query.py   │  │ Gemini 2.5   │
-│ Recuperación │  │ Flash        │
-│ Semántica    │  │ Respuestas   │
-└───────┬──────┘  └──────────────┘
-        │
-        ▼
-┌─────────────────────────────┐
-│       FAISS VectorStore     │
-│ index.faiss / index.pkl     │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│ Embeddings MiniLM-L6-v2     │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│ Chunks Documentales         │
-│ chunking.py                 │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│ Documentos PDF              │
-│ Normativa / Proyectos       │
-└─────────────────────────────┘
+```mermaid
+flowchart TD
+
+A[Usuario Final] --> B[Streamlit app.py]
+
+B --> C[chat.py]
+
+C --> D[query.py]
+C --> E[Gemini 2.5 Flash]
+
+D --> F[FAISS Vector Store]
+
+F --> G[Embeddings MiniLM-L6-v2]
+
+G --> H[Chunks Documentales]
+
+H --> I[Documentos PDF]
+```
 
 ## Tecnologías utilizadas
 
@@ -83,21 +54,21 @@ Función de cada componente
 * embeddings.py: Genera vectores semánticos
 * FAISS: Almacena y busca embeddings
 
-### 1. Ingesta documental
+## 1. Ingesta documental
 
 src/ingest.py
 
 - Lectura de PDFs
 - Extracción de texto
 
-### 2. Limpieza
+## 2. Limpieza
 
 src/cleaning.py
 
 - Normalización del texto
 - Eliminación de caracteres no deseados
 
-### 3. Chunking
+## 3. Chunking
 
 src/chunking.py
 
@@ -106,7 +77,7 @@ Configuración:
 - CHUNK_SIZE = 2500
 - CHUNK_OVERLAP = 300
 
-### 4. Embeddings
+## 4. Embeddings
 
 src/embeddings.py
 
@@ -114,7 +85,7 @@ Modelo:
 
 sentence-transformers/all-MiniLM-L6-v2
 
-### 5. Vector Store
+## 5. Vector Store
 
 FAISS
 
@@ -123,7 +94,7 @@ Archivos:
 - vectorstore/index.faiss
 - vectorstore/index.pkl
 
-### 6. Recuperación Semántica
+## 6. Recuperación Semántica
 
 src/query.py
 
@@ -135,7 +106,7 @@ FAISS
 ↓
 Top K resultados
 
-### 7. Generación de Respuestas
+## 7. Generación de Respuestas
 
 src/chat.py
 
@@ -147,7 +118,7 @@ Gemini
 ↓
 Respuesta
 
-### 8. Interfaz
+## 8. Interfaz
 
 app.py
 
@@ -159,7 +130,7 @@ Funcionalidades:
 - Feedback
 - Auditoría de contexto
 
-## Dockerización
+## 9. Dockerización
 
 Dockerfile validado exitosamente.
 
@@ -169,31 +140,66 @@ docker build -t heavenward-projectcopilot-ai .
 
 docker run -p 8501:8501 --env-file .env heavenward-projectcopilot-ai
 
+## 10. Publicación y Acceso Público
+
+### Publicación temporal para demostración
+
+Con el objetivo de permitir la validación externa del sistema por parte de evaluadores y usuarios, la aplicación fue publicada temporalmente mediante Ngrok.
+
+### URL Pública de Demostración
+
+> https://prune-clumsy-outrank.ngrok-free.dev
+
+### Arquitectura de Publicación
+
+```mermaid
+flowchart TD
+
+A[Usuario Externo] --> B[Ngrok]
+
+B --> C[Streamlit]
+
+C --> D[Heavenward ProjectCopilot AI]
+
+D --> E[FAISS]
+
+D --> F[Gemini 2.5 Flash]
+```
+
+### Beneficios
+
+- Acceso remoto sin necesidad de instalación.
+- Validación externa del sistema.
+- Demostración funcional del agente IA.
+- Acceso mediante navegador web.
+
+
 ## Evidencias
 
-### Interfaz principal del sistema
+### Interfaz principal del agente
 
-Pantalla inicial de Heavenward ProjectCopilot AI desarrollada en Streamlit.
-La interfaz permite realizar consultas sobre normativa interna,
-normativa externa y documentación de proyectos.
+La siguiente imagen muestra la interfaz principal de Heavenward ProjectCopilot AI desarrollada en Streamlit.  
+La aplicación permite consultar normativa interna, normativa externa y documentación de proyectos mediante una interfaz conversacional.
 
-### Procesamiento de consultas
+![Interfaz principal](../images/InterfazPrincipal.png)
 
-Ejemplo de una consulta realizada por el usuario.
-El sistema recupera información desde la base documental mediante FAISS
-y construye el contexto necesario para la generación de respuestas.
+---
 
-### Respuesta generada por el Agente IA
+### Recuperación semántica
 
-Ejemplo de respuesta obtenida mediante recuperación semántica y generación
-de contenido con Gemini 2.5 Flash.
+La siguiente imagen muestra el proceso de consulta realizado por el usuario.  
+El sistema busca información en la base documental, recupera fragmentos relevantes desde FAISS y prepara el contexto para la generación de la respuesta.
 
-La respuesta incluye:
+![Recuperación semántica](../images/RecuperacionSemantica.png)
 
-- Información contextual.
-- Fuentes documentales utilizadas.
-- Trazabilidad de la información.
-- Mecanismos de auditoría del contexto recuperado.
+---
+
+### Generación de respuesta
+
+La siguiente imagen muestra una respuesta generada por el agente utilizando Retrieval Augmented Generation y Gemini.  
+La respuesta incluye información contextual, fuentes documentales utilizadas y opciones de auditoría del contexto recuperado.
+
+![Generación de respuesta](../images/GeneracionDeRespuesta.png)
 
 ## Arquitectura OCI Objetivo
 
@@ -234,10 +240,26 @@ Servicios OCI considerados:
 
 ✅ Docker
 
-🔄 OCI Compute
+✅ URL Pública mediante Ngrok
+
+✅ OCI Compute
+
+✅ MVP Funcional
 
 ## Conclusiones
 
-El proyecto implementa un agente RAG funcional capaz de consultar
+Heavenward ProjectCopilot AI implementa una arquitectura RAG completa, desde la extracción documental hasta la generación de respuestas mediante inteligencia artificial generativa.
+
+La solución integra:
+
+- Procesamiento documental.
+- Recuperación semántica mediante FAISS.
+- Generación de respuestas con Gemini 2.5 Flash.
+- Interfaz web desarrollada en Streamlit.
+- Contenerización mediante Docker.
+- Publicación pública mediante Ngrok.
+- Preparación para despliegue en Oracle Cloud Infrastructure.
+
+El resultado corresponde a un MVP funcional y demostrable capaz de entregar respuestas fundamentadas utilizando documentación corporativa verificable.
 documentación corporativa, recuperar contexto relevante y generar
 respuestas fundamentadas utilizando Gemini.

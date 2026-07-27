@@ -23,7 +23,15 @@ El objetivo es permitir a los colaboradores consultar documentación interna rel
 
 ## Estado del Proyecto
 
-🚧 En desarrollo
+
+## Demo Pública
+
+La aplicación puede probarse mediante la siguiente URL pública:
+
+https://prune-clumsy-outrank.ngrok-free.dev
+
+Nota:
+La URL fue publicada mediante Ngrok para fines de demostración y validación
 
 ## Base documental utilizada:
 

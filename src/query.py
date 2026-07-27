@@ -23,7 +23,7 @@ embeddings = HuggingFaceEmbeddings(
 )
 
 # ==================================
-# Cargar FAISS
+# Cargar índice FAISS
 # ==================================
 
 vectorstore = FAISS.load_local(
@@ -33,7 +33,7 @@ vectorstore = FAISS.load_local(
 )
 
 # ==================================
-# Pregunta usuario
+# Pregunta del usuario
 # ==================================
 
 pregunta = input(
@@ -41,7 +41,7 @@ pregunta = input(
 )
 
 # ==================================
-# Búsqueda semántica
+# Recuperación semántica
 # ==================================
 
 resultados = vectorstore.similarity_search(
@@ -50,32 +50,37 @@ resultados = vectorstore.similarity_search(
 )
 
 # ==================================
-# Mostrar resultados
+# Construcción del contexto
 # ==================================
 
-print("\n" + "=" * 80)
-print("RESULTADOS")
-print("=" * 80)
+contexto = ""
 
 for i, doc in enumerate(resultados, start=1):
 
-    print(f"\nResultado {i}")
-    print("-" * 80)
-
-    print(
-        f"Archivo: {doc.metadata.get('archivo')}"
+    contexto += (
+        f"\n\n### Fragmento {i}\n"
+        f"Archivo: {doc.metadata.get('archivo')}\n"
+        f"Categoría: {doc.metadata.get('categoria')}\n"
+        f"Chunk: {doc.metadata.get('chunk_numero')}\n\n"
+        f"{doc.page_content}\n"
     )
 
-    print(
-        f"Categoría: {doc.metadata.get('categoria')}"
-    )
+# ==================================
+# Mostrar contexto consolidado
+# ==================================
 
-    print(
-        f"Chunk: {doc.metadata.get('chunk_numero')}"
-    )
+print("\n" + "=" * 80)
+print("PREGUNTA")
+print("=" * 80)
 
-    print("\nTexto:")
+print(pregunta)
 
-    print(doc.page_content[:1000])
+print("\n" + "=" * 80)
+print("CONTEXTO RECUPERADO")
+print("=" * 80)
 
-    print("\n" + "-" * 80)
+print(contexto)
+
+print("\n" + "=" * 80)
+print("FIN DEL CONTEXTO")
+print("=" * 80)

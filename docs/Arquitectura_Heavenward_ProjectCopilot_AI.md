@@ -15,21 +15,53 @@ y documentación de proyectos de Heavenward Ascensores S.A.
 
 ## Arquitectura General
 
-Usuario
-↓
-Streamlit
-↓
-chat.py
-↓
-FAISS
-↓
-Contexto
-↓
-Gemini
-↓
-Respuesta
-↓
-Fuentes
+┌─────────────────────────────┐
+│      Usuario Final          │
+│  (Colaborador Heavenward)   │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│      Streamlit (app.py)     │
+│ Interfaz Web Conversacional │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│         chat.py             │
+│ Orquestación del Agente IA  │
+└──────────────┬──────────────┘
+               │
+       ┌───────┴────────┐
+       ▼                ▼
+┌──────────────┐  ┌──────────────┐
+│   query.py   │  │ Gemini 2.5   │
+│ Recuperación │  │ Flash        │
+│ Semántica    │  │ Respuestas   │
+└───────┬──────┘  └──────────────┘
+        │
+        ▼
+┌─────────────────────────────┐
+│       FAISS VectorStore     │
+│ index.faiss / index.pkl     │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│ Embeddings MiniLM-L6-v2     │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│ Chunks Documentales         │
+│ chunking.py                 │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│ Documentos PDF              │
+│ Normativa / Proyectos       │
+└─────────────────────────────┘
 
 ## Tecnologías utilizadas
 
@@ -43,6 +75,13 @@ Fuentes
 - GitHub
 
 ## Flujo del Sistema
+
+Función de cada componente
+* ingest.py: Extrae texto desde PDF
+* cleaning.py: Limpia y normaliza contenido
+* chunking.py: Divide texto en fragmentos
+* embeddings.py: Genera vectores semánticos
+* FAISS: Almacena y busca embeddings
 
 ### 1. Ingesta documental
 

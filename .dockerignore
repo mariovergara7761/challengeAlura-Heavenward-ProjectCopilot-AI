@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+
+# Entorno virtual
+.ven*/
+
+# Variables sensibles
+.env
+
+# V*Code
+.vscode/
+
+# Caché
+.cache/
+
+# *rch*vos temporales
+*.tmp
+*.bak
+
+# Logs**.log

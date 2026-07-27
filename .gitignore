@@ -245,3 +245,6 @@ chroma_db/
 
 # excluir API
 .env
+
+# excluir informacion desde idexacion
+vectorstore/

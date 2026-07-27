@@ -171,17 +171,29 @@ docker run -p 8501:8501 --env-file .env heavenward-projectcopilot-ai
 
 ## Evidencias
 
-### Streamlit
+### Interfaz principal del sistema
 
-Agregar captura de Streamlit funcionando.
+Pantalla inicial de Heavenward ProjectCopilot AI desarrollada en Streamlit.
+La interfaz permite realizar consultas sobre normativa interna,
+normativa externa y documentación de proyectos.
 
-### Docker
+### Procesamiento de consultas
 
-Agregar captura de imagen Docker creada.
+Ejemplo de una consulta realizada por el usuario.
+El sistema recupera información desde la base documental mediante FAISS
+y construye el contexto necesario para la generación de respuestas.
 
-### Contenedor
+### Respuesta generada por el Agente IA
 
-Agregar captura del contenedor ejecutándose.
+Ejemplo de respuesta obtenida mediante recuperación semántica y generación
+de contenido con Gemini 2.5 Flash.
+
+La respuesta incluye:
+
+- Información contextual.
+- Fuentes documentales utilizadas.
+- Trazabilidad de la información.
+- Mecanismos de auditoría del contexto recuperado.
 
 ## Arquitectura OCI Objetivo
 
